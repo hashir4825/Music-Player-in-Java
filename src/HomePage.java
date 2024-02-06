@@ -1,35 +1,182 @@
 
 import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Image;
 import java.io.File;
+import java.sql.SQLException;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
-
-
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSlider;
 
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
  */
-
 /**
  *
  * @author Hp
  */
 public class HomePage extends javax.swing.JFrame {
-     
+
     SongDatabase db;
+    private JPanel currentlyPlayingPanel;
+    boolean toggle = false;
+    boolean repeat = true;
+    int id;
+    String play_pause_icon = "play";
+    Music m = new Music();
 
     /**
      * Creates new form HomePage
      */
-            boolean toggle = false;
     public HomePage() {
         initComponents();
         setExtendedState(JFrame.MAXIMIZED_BOTH);
-    db = new SongDatabase();
+        db = new SongDatabase();
         volume_slider.setVisible(false);
+        int countSongs = SongDatabase.getTotalNumberOfSongs();
+        if (countSongs > 0) {
+            this.ChooseButton.setVisible(false);
+            this.pathField.setVisible(false);
+        }
+        displayRecentSongsOnPanel();
+    }
+
+    public void playSongAndUpdateUI(String path) {
+        try {
+            // Play the song
+            PausablePlayer.setPlayer(path);
+            PausablePlayer.play();
+
+            // Extract metadata
+            MetadataExtractor mx = new MetadataExtractor();
+            mx.extractMetadata(path);
+
+            // Update UI elements
+            String name = mx.name;
+            byte[] pic = mx.image;
+
+            // Update the name label
+            SongNameLabel.setText(name);
+
+            // Update the picture label
+            ImageIcon icon = new ImageIcon(pic);
+            Image scaledImage = icon.getImage().getScaledInstance(SongPicLabel.getWidth(), SongPicLabel.getHeight(), Image.SCALE_SMOOTH);
+            ImageIcon scaledIcon = new ImageIcon(scaledImage);
+            SongPicLabel.setIcon(scaledIcon);
+
+        } catch (Exception ex) {
+            Logger.getLogger(Music.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void displayRecentSongsOnPanel() {
+        // Fetch recent songs from the database
+        List<Song> recentSongs = db.displayRecentSongs();
+
+        if (recentSongs.isEmpty()) {
+            System.out.println("No recent songs to display.");
+        } else {
+            // Create a new panel for storing the recent song panels vertically
+            JPanel recentSongListPanel = new JPanel();
+            recentSongListPanel.setLayout(new BoxLayout(recentSongListPanel, BoxLayout.Y_AXIS));
+
+            // Iterate through the recent songs and create panels dynamically
+            for (Song song : recentSongs) {
+                JPanel songPanel = new JPanel();
+                songPanel.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 5));
+
+                // Create and add labels to the songPanel
+                JLabel nameLabel = createFormattedLabel(song.name);
+                JLabel singerLabel = createFormattedLabel(song.singer);
+                JLabel durationLabel = createFormattedLabel(song.duration);
+                JLabel genreLabel = createFormattedLabel(song.genre);
+                JLabel pathLabel = createFormattedLabel(song.path);
+
+                // Set preferred size for labels
+                Dimension labelSize = new Dimension(150, 50); // Fixed height of 20
+                nameLabel.setPreferredSize(labelSize);
+                singerLabel.setPreferredSize(labelSize);
+                durationLabel.setPreferredSize(labelSize);
+                genreLabel.setPreferredSize(labelSize);
+                pathLabel.setPreferredSize(labelSize);
+
+                // Add labels to the songPanel
+                songPanel.add(nameLabel);
+                songPanel.add(singerLabel);
+                songPanel.add(durationLabel);
+                songPanel.add(genreLabel);
+                songPanel.add(pathLabel);
+
+                // Set a background color for the panel
+                songPanel.setBackground(new Color(240, 240, 240));
+
+                // Add the dynamically created panel to recentSongListPanel
+                recentSongListPanel.add(songPanel);
+
+                // Add mouse listeners for hover effect and click event
+                songPanel.addMouseListener(new java.awt.event.MouseAdapter() {
+                    public void mouseEntered(java.awt.event.MouseEvent evt) {
+                        if (songPanel != currentlyPlayingPanel) {
+                            songPanel.setBackground(new Color(250, 250, 250));
+                        }
+                    }
+
+                    public void mouseExited(java.awt.event.MouseEvent evt) {
+                        if (songPanel != currentlyPlayingPanel) {
+                            songPanel.setBackground(new Color(240, 240, 240));
+                        }
+                    }
+
+                    public void mouseClicked(java.awt.event.MouseEvent evt) {
+                        MetadataExtractor mx = new MetadataExtractor();
+
+                        id = song.id;
+                        String pathe = song.path;
+
+                        play_pause_icon = "pause";
+                        PlayButton.setIcon(new ImageIcon("C:\\Users\\Hp\\Desktop\\Music_Player\\src\\Images\\pause.png"));
+                        // Call function to show pic and name of song
+                        playSongAndUpdateUI(pathe);
+
+                        // Change the background color of the currently playing panel to light blue
+                        if (currentlyPlayingPanel != null) {
+                            currentlyPlayingPanel.setBackground(new Color(240, 240, 240));
+                        }
+                        songPanel.setBackground(new Color(173, 216, 230)); // Light blue
+                        currentlyPlayingPanel = songPanel;
+                    }
+                });
+            }
+
+            // Create a JScrollPane and set its viewport
+            JScrollPane recentSongsScrollPane = new JScrollPane(recentSongListPanel);
+
+            // Add the JScrollPane to the RecentSongsLoadPanel viewport
+            RecentSongsLoadPanel.setViewportView(recentSongsScrollPane);
+        }
+
+        // Repaint and revalidate to reflect changes
+        RecentSongsLoadPanel.revalidate();
+        RecentSongsLoadPanel.repaint();
+    }
+
+    private JLabel createFormattedLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setHorizontalAlignment(JLabel.LEFT);
+        label.setFont(new Font("Arial", Font.BOLD, 12)); // Adjusted font size here
+        return label;
     }
 
     /**
@@ -53,8 +200,12 @@ public class HomePage extends javax.swing.JFrame {
         NextButton = new javax.swing.JButton();
         volume_slider = new javax.swing.JSlider();
         VolumeButton = new javax.swing.JButton();
+        SongPicLabel = new javax.swing.JLabel();
+        SongNameLabel = new javax.swing.JLabel();
+        repeatButton = new javax.swing.JButton();
         jPanel1 = new javax.swing.JPanel();
         jLabel1 = new javax.swing.JLabel();
+        RecentSongsLoadPanel = new javax.swing.JScrollPane();
         BrowsePanel = new javax.swing.JPanel();
         ChooseButton = new javax.swing.JButton();
         pathField = new javax.swing.JTextField();
@@ -143,7 +294,7 @@ public class HomePage extends javax.swing.JFrame {
                 .addComponent(MusicPageButton)
                 .addGap(27, 27, 27)
                 .addComponent(PlayListPageButton)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap(38, Short.MAX_VALUE))
         );
 
         ControlPanel.setBackground(new java.awt.Color(102, 153, 255));
@@ -151,7 +302,7 @@ public class HomePage extends javax.swing.JFrame {
         PreviousButton.setBackground(new java.awt.Color(255, 0, 0));
         PreviousButton.setFont(new java.awt.Font("Times New Roman", 1, 12)); // NOI18N
         PreviousButton.setForeground(new java.awt.Color(255, 255, 255));
-        PreviousButton.setText("Previous");
+        PreviousButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/previous.png"))); // NOI18N
         PreviousButton.setPreferredSize(new java.awt.Dimension(75, 33));
         PreviousButton.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
@@ -170,9 +321,12 @@ public class HomePage extends javax.swing.JFrame {
         PlayButton.setBackground(new java.awt.Color(255, 0, 0));
         PlayButton.setFont(new java.awt.Font("Times New Roman", 1, 12)); // NOI18N
         PlayButton.setForeground(new java.awt.Color(255, 255, 255));
-        PlayButton.setText("Play");
+        PlayButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/play.png"))); // NOI18N
         PlayButton.setPreferredSize(new java.awt.Dimension(72, 33));
         PlayButton.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                PlayButtonMouseClicked(evt);
+            }
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 PlayButtonMouseEntered(evt);
             }
@@ -189,7 +343,7 @@ public class HomePage extends javax.swing.JFrame {
         NextButton.setBackground(new java.awt.Color(255, 0, 0));
         NextButton.setFont(new java.awt.Font("Times New Roman", 1, 12)); // NOI18N
         NextButton.setForeground(new java.awt.Color(255, 255, 255));
-        NextButton.setText("Next");
+        NextButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/next.png"))); // NOI18N
         NextButton.setPreferredSize(new java.awt.Dimension(72, 33));
         NextButton.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
@@ -197,6 +351,22 @@ public class HomePage extends javax.swing.JFrame {
             }
             public void mouseExited(java.awt.event.MouseEvent evt) {
                 NextButtonMouseExited(evt);
+            }
+        });
+        NextButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                NextButtonActionPerformed(evt);
+            }
+        });
+
+        volume_slider.setMajorTickSpacing(20);
+        volume_slider.setMinorTickSpacing(5);
+        volume_slider.setPaintLabels(true);
+        volume_slider.setPaintTicks(true);
+        volume_slider.setSnapToTicks(true);
+        volume_slider.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                volume_sliderStateChanged(evt);
             }
         });
 
@@ -207,46 +377,93 @@ public class HomePage extends javax.swing.JFrame {
             }
         });
 
+        SongNameLabel.setBackground(new java.awt.Color(255, 0, 0));
+        SongNameLabel.setFont(new java.awt.Font("Times New Roman", 1, 18)); // NOI18N
+        SongNameLabel.setForeground(new java.awt.Color(255, 255, 255));
+
+        repeatButton.setBackground(new java.awt.Color(255, 51, 51));
+        repeatButton.setFont(new java.awt.Font("Times New Roman", 1, 18)); // NOI18N
+        repeatButton.setForeground(new java.awt.Color(255, 255, 255));
+        repeatButton.setText("Repeat");
+        repeatButton.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                repeatButtonMouseClicked(evt);
+            }
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                repeatButtonMouseEntered(evt);
+            }
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                repeatButtonMouseExited(evt);
+            }
+        });
+        repeatButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                repeatButtonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout ControlPanelLayout = new javax.swing.GroupLayout(ControlPanel);
         ControlPanel.setLayout(ControlPanelLayout);
         ControlPanelLayout.setHorizontalGroup(
             ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, ControlPanelLayout.createSequentialGroup()
-                .addGap(150, 150, 150)
-                .addComponent(PreviousButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(38, 38, 38)
-                .addComponent(PlayButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(33, 33, 33)
-                .addComponent(NextButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, ControlPanelLayout.createSequentialGroup()
+            .addGroup(ControlPanelLayout.createSequentialGroup()
                 .addGap(23, 23, 23)
+                .addComponent(MusicSlider, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addContainerGap())
+            .addGroup(ControlPanelLayout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(SongPicLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 125, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(SongNameLabel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, ControlPanelLayout.createSequentialGroup()
                         .addComponent(VolumeButton)
                         .addGap(82, 82, 82))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, ControlPanelLayout.createSequentialGroup()
-                        .addComponent(MusicSlider, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addContainerGap())))
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, ControlPanelLayout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(volume_slider, javax.swing.GroupLayout.PREFERRED_SIZE, 145, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(25, 25, 25))
+                        .addComponent(volume_slider, javax.swing.GroupLayout.PREFERRED_SIZE, 145, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(25, 25, 25))))
+            .addGroup(ControlPanelLayout.createSequentialGroup()
+                .addGap(179, 179, 179)
+                .addComponent(PreviousButton, javax.swing.GroupLayout.PREFERRED_SIZE, 56, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(28, 28, 28)
+                .addComponent(PlayButton, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(27, 27, 27)
+                .addComponent(NextButton, javax.swing.GroupLayout.PREFERRED_SIZE, 56, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(repeatButton, javax.swing.GroupLayout.PREFERRED_SIZE, 116, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(37, 37, 37))
         );
         ControlPanelLayout.setVerticalGroup(
             ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(ControlPanelLayout.createSequentialGroup()
                 .addContainerGap()
                 .addComponent(MusicSlider, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(NextButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(PlayButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(PreviousButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addGap(1, 1, 1)
-                .addComponent(volume_slider, javax.swing.GroupLayout.DEFAULT_SIZE, 31, Short.MAX_VALUE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(VolumeButton))
+                .addGroup(ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(ControlPanelLayout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(NextButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(PlayButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(PreviousButton, javax.swing.GroupLayout.PREFERRED_SIZE, 58, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, ControlPanelLayout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(repeatButton)))
+                .addGroup(ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(ControlPanelLayout.createSequentialGroup()
+                        .addGap(1, 1, 1)
+                        .addComponent(volume_slider, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(VolumeButton))
+                    .addGroup(ControlPanelLayout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 9, Short.MAX_VALUE)
+                        .addGroup(ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addGroup(ControlPanelLayout.createSequentialGroup()
+                                .addComponent(SongPicLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 81, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addContainerGap())
+                            .addGroup(ControlPanelLayout.createSequentialGroup()
+                                .addComponent(SongNameLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(14, 14, 14))))))
         );
 
         jPanel1.setBackground(new java.awt.Color(255, 0, 0));
@@ -319,8 +536,10 @@ public class HomePage extends javax.swing.JFrame {
                 .addGroup(BrowsePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(ChooseButton, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(pathField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(116, Short.MAX_VALUE))
+                .addContainerGap(136, Short.MAX_VALUE))
         );
+
+        RecentSongsLoadPanel.setViewportView(BrowsePanel);
 
         javax.swing.GroupLayout HomePanelLayout = new javax.swing.GroupLayout(HomePanel);
         HomePanel.setLayout(HomePanelLayout);
@@ -328,31 +547,35 @@ public class HomePage extends javax.swing.JFrame {
             HomePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(HomePanelLayout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(NavBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(84, 84, 84)
                 .addGroup(HomePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(HomePanelLayout.createSequentialGroup()
-                        .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addGap(156, 156, 156))
+                        .addGap(6, 6, 6)
+                        .addComponent(ControlPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(HomePanelLayout.createSequentialGroup()
-                        .addComponent(BrowsePanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addContainerGap())))
-            .addComponent(ControlPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(NavBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGroup(HomePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(HomePanelLayout.createSequentialGroup()
+                                .addGap(84, 84, 84)
+                                .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addGap(156, 156, 156))
+                            .addGroup(HomePanelLayout.createSequentialGroup()
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(RecentSongsLoadPanel)
+                                .addContainerGap())))))
         );
         HomePanelLayout.setVerticalGroup(
             HomePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(HomePanelLayout.createSequentialGroup()
-                .addGroup(HomePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, HomePanelLayout.createSequentialGroup()
+                .addGroup(HomePanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(HomePanelLayout.createSequentialGroup()
                         .addGap(86, 86, 86)
                         .addComponent(NavBar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, HomePanelLayout.createSequentialGroup()
+                    .addGroup(HomePanelLayout.createSequentialGroup()
                         .addGap(20, 20, 20)
                         .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(18, 18, 18)
-                        .addComponent(BrowsePanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 0, Short.MAX_VALUE)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(RecentSongsLoadPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)))
+                .addGap(18, 18, 18)
                 .addComponent(ControlPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
@@ -374,20 +597,38 @@ public class HomePage extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void PreviousButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_PreviousButtonActionPerformed
-        // TODO add your handling code here:
+
+        try {
+            int LastSong = SongDatabase.getFirstSongId() + 4;
+            int firstSong = SongDatabase.getFirstSongId();
+            if (id == firstSong) {
+                id = LastSong;
+            } else {
+                id = id - 1;
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(HomePage.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        Song NextSong = db.getSongByIdFromRecentSongs(id);
+        String path = NextSong.path;
+        playSongAndUpdateUI(path);
     }//GEN-LAST:event_PreviousButtonActionPerformed
 
     private void PlayButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_PlayButtonActionPerformed
         // TODO add your handling code here:
-
-        if ("Play".equals(PlayButton.getText())) {
+        if (play_pause_icon == "play") {
             // Logic to start playing the music
             // Example: musicPlayer.play();
-            PlayButton.setText("Stop");
+            PlayButton.setIcon(new ImageIcon("C:\\Users\\Hp\\Desktop\\Music_Player\\src\\Images\\pause.png"));
+            PausablePlayer.resume();
+            play_pause_icon = "pause";
         } else {
             // Logic to stop the music
             // Example: musicPlayer.stop();
-            PlayButton.setText("Play");
+            PlayButton.setIcon(new ImageIcon("C:\\Users\\Hp\\Desktop\\Music_Player\\src\\Images\\play.png"));
+            PausablePlayer.pause();
+            play_pause_icon = "play";
+            System.out.println("HU");
         }
 
     }//GEN-LAST:event_PlayButtonActionPerformed
@@ -471,7 +712,6 @@ public class HomePage extends javax.swing.JFrame {
 
             // Now, you can use the selectedFolder to load songs from the chosen directory
             // For example, you can list all files in the directory using selectedFolder.listFiles()
-
             // Example:
             File[] files = selectedFolder.listFiles();
             if (files != null && files.length > 0) {
@@ -490,7 +730,7 @@ public class HomePage extends javax.swing.JFrame {
                             byte[] image = mx.image;
                             String genre = mx.genre;
                             String path = mx.path;
-                            SongDatabase.insertIntoSongsTable(name,singer,duration,image,genre,path);
+                            SongDatabase.insertIntoSongsTable(name, singer, duration, image, genre, path);
                         } catch (Exception e) {
                             // Handle the exception (print stack trace or show an error message)
                             e.printStackTrace();
@@ -498,12 +738,12 @@ public class HomePage extends javax.swing.JFrame {
                         }
                     }
                 }
-                     // Now that the songs are inserted into the database, let's display them in MusicPage
+                // Now that the songs are inserted into the database, let's display them in MusicPage
 //        List<Song> songs = db.displaySongs(); // Assuming db is an instance of SongDatabase
 //        Music musicPage = new Music(songs);
-        Music musicPage = new Music(); 
-        musicPage.setVisible(true);
-        this.dispose();   
+                Music musicPage = new Music();
+                musicPage.setVisible(true);
+                this.dispose();
             } else {
                 JOptionPane.showMessageDialog(null, "No songs found in the selected folder");
             }
@@ -511,12 +751,12 @@ public class HomePage extends javax.swing.JFrame {
         File f = chooser.getCurrentDirectory();
         String filename = f.getAbsolutePath();
         pathField.setText(filename);
-    }   
+    }
 
     private boolean isMP3File(File file) {
         // Check if the file has an ".mp3" extension
         return file.isFile() && file.getName().toLowerCase().endsWith(".mp3");
-        
+
     }//GEN-LAST:event_ChooseButtonActionPerformed
 
     private void pathFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_pathFieldActionPerformed
@@ -571,6 +811,73 @@ public class HomePage extends javax.swing.JFrame {
         NextButton.setForeground(Color.WHITE);
     }//GEN-LAST:event_NextButtonMouseExited
 
+    private void repeatButtonMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_repeatButtonMouseClicked
+
+    }//GEN-LAST:event_repeatButtonMouseClicked
+
+    private void repeatButtonMouseEntered(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_repeatButtonMouseEntered
+        // TODO add your handling code here:
+        repeatButton.setBackground(Color.green.darker());
+        repeatButton.setForeground(Color.WHITE);
+    }//GEN-LAST:event_repeatButtonMouseEntered
+
+    private void repeatButtonMouseExited(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_repeatButtonMouseExited
+        // TODO add your handling code here:
+        repeatButton.setBackground(Color.red);
+        repeatButton.setForeground(Color.WHITE);
+    }//GEN-LAST:event_repeatButtonMouseExited
+
+    private void repeatButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_repeatButtonActionPerformed
+        if (repeat == true) {
+            PausablePlayer.setRepeat(true);
+            repeat = false;
+            repeatButton.setText("Not Repeat");
+
+        } else {
+            System.out.println("by");
+            repeatButton.setText("Repeat");
+            PausablePlayer.setRepeat(false);
+            repeat = true;
+
+        }
+    }//GEN-LAST:event_repeatButtonActionPerformed
+
+    private void NextButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_NextButtonActionPerformed
+
+        play_pause_icon = "pause";
+        PlayButton.setIcon(new ImageIcon("C:\\Users\\Hp\\Desktop\\Music_Player\\src\\Images\\pause.png"));
+
+        try {
+            int LastSong = SongDatabase.getFirstSongId() + 4;
+            System.out.println(LastSong);
+            if (id == LastSong) {
+                id = SongDatabase.getFirstSongId();
+            } else {
+                id = id + 1;
+            }
+            System.out.println(id);
+        } catch (SQLException ex) {
+            Logger.getLogger(HomePage.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        Song NextSong = db.getSongByIdFromRecentSongs(id);
+        String path = NextSong.path;
+        playSongAndUpdateUI(path);
+    }//GEN-LAST:event_NextButtonActionPerformed
+
+    private void volume_sliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_volume_sliderStateChanged
+        // TODO add your handling code here:
+        // TODO add your handling code here:
+        JSlider source = (JSlider) evt.getSource();
+        if (!source.getValueIsAdjusting()) {
+            float volume = (int) source.getValue() / 100.0f;
+            PausablePlayer.setVolume(volume);
+        }
+    }//GEN-LAST:event_volume_sliderStateChanged
+
+    private void PlayButtonMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_PlayButtonMouseClicked
+        // TODO add your handling code here:
+    }//GEN-LAST:event_PlayButtonMouseClicked
+
     /**
      * @param args the command line arguments
      */
@@ -619,10 +926,14 @@ public class HomePage extends javax.swing.JFrame {
     private javax.swing.JButton PlayButton;
     private javax.swing.JButton PlayListPageButton;
     private javax.swing.JButton PreviousButton;
+    private javax.swing.JScrollPane RecentSongsLoadPanel;
+    private javax.swing.JLabel SongNameLabel;
+    private javax.swing.JLabel SongPicLabel;
     private javax.swing.JButton VolumeButton;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JTextField pathField;
+    private javax.swing.JButton repeatButton;
     private javax.swing.JSlider volume_slider;
     // End of variables declaration//GEN-END:variables
 }

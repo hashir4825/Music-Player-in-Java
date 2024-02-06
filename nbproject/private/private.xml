@@ -3,10 +3,10 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/Users/Hp/Desktop/Music_Player/src/VolumeControl.java</file>
             <file>file:/C:/Users/Hp/Desktop/Music_Player/src/Music.java</file>
             <file>file:/C:/Users/Hp/Desktop/Music_Player/src/SongDatabase.java</file>
-            <file>file:/C:/Users/Hp/Desktop/Music_Player/src/PausablePlayer.java</file>
+            <file>file:/C:/Users/Hp/Desktop/Music_Player/src/MetadataExtractor.java</file>
+            <file>file:/C:/Users/Hp/Desktop/Music_Player/src/HomePage.java</file>
         </group>
     </open-files>
 </project-private>

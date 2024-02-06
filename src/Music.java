@@ -134,6 +134,10 @@ public class Music extends javax.swing.JFrame {
                     }
 
                     public void mouseClicked(java.awt.event.MouseEvent evt) {
+                        MetadataExtractor mx = new MetadataExtractor();
+                        byte[] pic = mx.image;
+
+                        SongDatabase.insertIntoRecentSongsTable(song.name, song.singer, song.duration, pic, song.genre, song.path);
                         id = song.id;
                         String pathe = song.path;
 
@@ -333,6 +337,9 @@ public class Music extends javax.swing.JFrame {
         NextButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/Images/next.png"))); // NOI18N
         NextButton.setPreferredSize(new java.awt.Dimension(72, 33));
         NextButton.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                NextButtonMouseClicked(evt);
+            }
             public void mouseEntered(java.awt.event.MouseEvent evt) {
                 NextButtonMouseEntered(evt);
             }
@@ -434,13 +441,14 @@ public class Music extends javax.swing.JFrame {
                         .addComponent(songPicLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addContainerGap())
                     .addGroup(ControlPanelLayout.createSequentialGroup()
-                        .addGroup(ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                            .addComponent(PreviousButton, javax.swing.GroupLayout.PREFERRED_SIZE, 55, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(NextButton, javax.swing.GroupLayout.PREFERRED_SIZE, 53, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(PlayButton, javax.swing.GroupLayout.PREFERRED_SIZE, 53, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGroup(ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(ControlPanelLayout.createSequentialGroup()
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                .addComponent(repeatButton)))
+                                .addComponent(repeatButton))
+                            .addGroup(ControlPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(PreviousButton, javax.swing.GroupLayout.PREFERRED_SIZE, 55, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(NextButton, javax.swing.GroupLayout.PREFERRED_SIZE, 53, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(PlayButton, javax.swing.GroupLayout.PREFERRED_SIZE, 53, javax.swing.GroupLayout.PREFERRED_SIZE)))
                         .addGap(36, 36, 36)
                         .addComponent(volume_slider, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -563,6 +571,11 @@ public class Music extends javax.swing.JFrame {
         Song NextSong = db.getSongById(id);
         String path = NextSong.path;
         playSongAndUpdateUI(path);
+        
+        // to add the song in the "recentsong" table by when the next button is pressed
+        MetadataExtractor mx = new MetadataExtractor();
+        byte[] pic = mx.image;
+        SongDatabase.insertIntoRecentSongsTable(NextSong.name, NextSong.singer, NextSong.duration, pic, NextSong.genre, NextSong.path);
     }//GEN-LAST:event_PreviousButtonActionPerformed
 
     private void PlayButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_PlayButtonActionPerformed
@@ -690,6 +703,12 @@ public class Music extends javax.swing.JFrame {
         Song NextSong = db.getSongById(id);
         String path = NextSong.path;
         playSongAndUpdateUI(path);
+
+        
+        // to add the song in the "recentsong" table by when the next button is pressed
+        MetadataExtractor mx = new MetadataExtractor();
+        byte[] pic = mx.image;
+        SongDatabase.insertIntoRecentSongsTable(NextSong.name, NextSong.singer, NextSong.duration, pic, NextSong.genre, NextSong.path);
     }//GEN-LAST:event_NextButtonActionPerformed
 
     private void repeatButtonMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_repeatButtonMouseClicked
@@ -732,6 +751,10 @@ public class Music extends javax.swing.JFrame {
         repeatButton.setBackground(Color.red);
         repeatButton.setForeground(Color.WHITE);
     }//GEN-LAST:event_repeatButtonMouseExited
+
+    private void NextButtonMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_NextButtonMouseClicked
+        // TODO add your handling code here:
+    }//GEN-LAST:event_NextButtonMouseClicked
 
     /**
      * @param args the command line arguments
